@@ -1,6 +1,6 @@
-Kronos Track Infringement Management System
+Kronos Penalty Tracking System
 
-A full-stack race control and penalty management system built for Dubai Kartdrome to streamline FIA-certified endurance event operations.
+A full-stack race control and penalty management system built for Dubai Kartdrome to streamline ndurance event operations.
 The system enables live tracking of infringements, penalties, and race sessions, complete with real-time WebSocket updates, multi-session database handling, and intuitive dashboards for race officials.
 
 Tech Stack
