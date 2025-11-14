@@ -172,3 +172,81 @@ export async function listSessions(): Promise<{ sessions: SessionSummary[] }> {
   return request<{ sessions: SessionSummary[] }>('/session/');
 }
 
+export async function exportSession(
+  name: string,
+  format: 'json' | 'csv' | 'excel' = 'json'
+): Promise<void> {
+  const url = `${API_BASE}/session/export?name=${encodeURIComponent(name)}&format=${format}`;
+  console.log('🌐 Export API call:', { url, name, format, API_BASE });
+  
+  try {
+    console.log('📡 Fetching export from:', url);
+    const response = await fetch(url, {
+      method: 'GET',
+    });
+    console.log('📥 Response received:', { status: response.status, statusText: response.statusText, ok: response.ok });
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(
+        `Export failed (${response.status} ${response.statusText}): ${message}`
+      );
+    }
+
+    // Get filename from Content-Disposition header or generate one
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = `${name}_${new Date().toISOString().split('T')[0]}.${format}`;
+    
+    // Map format to file extension
+    const extensionMap: Record<string, string> = {
+      json: 'json',
+      csv: 'csv',
+      excel: 'xlsx'
+    };
+    const extension = extensionMap[format] || format;
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, '');
+      }
+    } else {
+      // Fallback: use session name and current date
+      filename = `${name}_${new Date().toISOString().split('T')[0]}.${extension}`;
+    }
+
+    // Download the file
+    const blob = await response.blob();
+    
+    if (blob.size === 0) {
+      throw new Error('Received empty file from server');
+    }
+    
+    console.log(`Downloading file: ${filename} (${blob.size} bytes)`);
+    
+    // Create download link
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    // Add to DOM, click, then remove
+    document.body.appendChild(link);
+    
+    // Trigger download
+    link.click();
+    
+    // Clean up after a delay to ensure download starts
+    setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+      window.URL.revokeObjectURL(downloadUrl);
+    }, 200);
+  } catch (error) {
+    console.error('Export error:', error);
+    throw error;
+  }
+}
+

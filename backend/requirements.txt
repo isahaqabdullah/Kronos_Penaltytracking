@@ -5,3 +5,4 @@ pydantic
 sqlalchemy
 alembic
 python-dotenv
+openpyxl

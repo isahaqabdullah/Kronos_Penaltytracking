@@ -48,10 +48,10 @@ Create `backend/.env` with production values:
 
 ```env
 # Database Configuration
-DATABASE_URL=postgresql://kronos_user:STRONG_PASSWORD_HERE@db:5432/kronos_db
-POSTGRES_USER=kronos_user
+DATABASE_URL=postgresql://racelith_user:STRONG_PASSWORD_HERE@db:5432/racelith_db
+POSTGRES_USER=racelith_user
 POSTGRES_PASSWORD=STRONG_PASSWORD_HERE
-POSTGRES_DB=kronos_db
+POSTGRES_DB=racelith_db
 
 # CORS Configuration (comma-separated list)
 CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
@@ -161,10 +161,10 @@ sudo certbot renew --dry-run
 
 ```bash
 # Backup database
-docker-compose exec db pg_dump -U kronos_user kronos_db > backup_$(date +%Y%m%d_%H%M%S).sql
+docker-compose exec db pg_dump -U racelith_user racelith_db > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Restore database
-docker-compose exec -T db psql -U kronos_user kronos_db < backup.sql
+docker-compose exec -T db psql -U racelith_user racelith_db < backup.sql
 ```
 
 #### Automated Backups
@@ -175,7 +175,7 @@ Create a backup script (`backup.sh`):
 #!/bin/bash
 BACKUP_DIR="./backups"
 mkdir -p $BACKUP_DIR
-docker-compose exec -T db pg_dump -U kronos_user kronos_db | gzip > $BACKUP_DIR/backup_$(date +%Y%m%d_%H%M%S).sql.gz
+docker-compose exec -T db pg_dump -U racelith_user racelith_db | gzip > $BACKUP_DIR/backup_$(date +%Y%m%d_%H%M%S).sql.gz
 # Keep only last 30 days
 find $BACKUP_DIR -name "backup_*.sql.gz" -mtime +30 -delete
 ```

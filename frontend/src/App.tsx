@@ -5,8 +5,9 @@ import { PendingPenalties } from './components/PendingPenalties';
 import { EditInfringementDialog } from './components/EditInfringementDialog';
 import { SessionManager } from './components/SessionManager';
 import { CheckeredFlag } from './components/CheckeredFlag';
-import { KronosLogo } from './components/KronosLogo';
+import { RacelithLogo } from './components/RacelithLogo';
 import { Alert, AlertDescription, AlertTitle } from './components/ui/alert';
+import { Button } from './components/ui/button';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -28,7 +29,11 @@ import type {
 
 const DEFAULT_PERFORMED_BY = 'Race Control Operator';
 
+type View = 'sessions' | 'penalty-logging';
+
 export default function App() {
+  const [currentView, setCurrentView] = useState<View>('sessions');
+  const [activeSessionName, setActiveSessionName] = useState<string | null>(null);
   const [infringements, setInfringements] = useState<InfringementRecord[]>([]);
   const [pendingPenalties, setPendingPenalties] = useState<PendingPenalty[]>([]);
   const [editingInfringement, setEditingInfringement] = useState<InfringementRecord | null>(null);
@@ -42,12 +47,16 @@ export default function App() {
   const checkActiveSession = useCallback(async () => {
     try {
       const response = await listSessions();
-      const active = response.sessions.some((s) => s.status === 'active');
-      setHasActiveSession(active);
-      return active;
+      const activeSession = response.sessions.find((s) => s.status === 'active');
+      const hasActive = !!activeSession;
+      setHasActiveSession(hasActive);
+      if (activeSession) {
+        setActiveSessionName(activeSession.name);
+      }
+      return { hasActive, sessionName: activeSession?.name || null };
     } catch (error) {
       console.error('Failed to check active session', error);
-      return false;
+      return { hasActive: false, sessionName: null };
     }
   }, []);
 
@@ -104,9 +113,25 @@ export default function App() {
     [checkActiveSession]
   );
 
+  // Check for active session on mount and navigate if exists
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    const checkAndNavigate = async () => {
+      const { hasActive, sessionName } = await checkActiveSession();
+      if (hasActive && sessionName) {
+        setCurrentView('penalty-logging');
+        setActiveSessionName(sessionName);
+      }
+    };
+    void checkAndNavigate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Only load data when in penalty-logging view
+  useEffect(() => {
+    if (currentView === 'penalty-logging') {
+      void loadData();
+    }
+  }, [currentView, loadData]);
 
   useEffect(() => {
     const url = `${API_BASE.replace(/^http/, 'ws').replace(/\/$/, '')}/ws`;
@@ -198,7 +223,7 @@ export default function App() {
         ...payload,
         performed_by: payload.performed_by || DEFAULT_PERFORMED_BY,
       });
-      setInfringements((prev) =>
+    setInfringements((prev) =>
         prev.map((inf) => (inf.id === updated.id ? updated : inf))
       );
       const pending = await fetchPendingPenalties();
@@ -217,7 +242,7 @@ export default function App() {
   const handleDeleteInfringement = async (id: number) => {
     try {
       await deleteInfringement(id);
-      setInfringements((prev) => prev.filter((inf) => inf.id !== id));
+    setInfringements((prev) => prev.filter((inf) => inf.id !== id));
       setPendingPenalties((prev) => prev.filter((penalty) => penalty.id !== id));
       toast.success('Infringement deleted successfully');
     } catch (error: any) {
@@ -228,66 +253,97 @@ export default function App() {
     }
   };
 
+  const handleSessionSelected = (sessionName: string) => {
+    setActiveSessionName(sessionName);
+    setCurrentView('penalty-logging');
+  };
+
+  const handleSessionCreatedOrLoaded = (sessionName: string) => {
+    setActiveSessionName(sessionName);
+    setCurrentView('penalty-logging');
+    void loadData();
+  };
+
+  const handleBackToSessions = () => {
+    setCurrentView('sessions');
+    setActiveSessionName(null);
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b relative overflow-hidden">
+      <header className="border-b relative overflow-hidden bg-background">
         <CheckeredFlag />
-        <div className="container mx-auto px-4 py-6 relative z-10">
-          <div className="flex items-center gap-4">
-            <KronosLogo />
-            <div>
-              <h1 className="text-[36px] font-bold not-italic">Kronos</h1>
-              <p className="text-muted-foreground">Karting Infringement Management System</p>
+        <div className="container mx-auto px-4 py-4 relative z-10">
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative z-20">
+              <RacelithLogo variant="dark" size="sm" />
             </div>
+            {currentView === 'penalty-logging' && activeSessionName && (
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Active Session</p>
+                  <p className="font-semibold">{activeSessionName}</p>
+                </div>
+                <Button variant="outline" onClick={handleBackToSessions}>
+                  ← Back to Sessions
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {currentView === 'sessions' ? (
+          <SessionManager
+            onSessionChange={loadData}
+            onSessionSelected={handleSessionSelected}
+            onSessionCreatedOrLoaded={handleSessionCreatedOrLoaded}
+          />
+        ) : (
         <div className="space-y-6">
-          <SessionManager onSessionChange={loadData} />
+            {loadError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Unable to Load Data</AlertTitle>
+                <AlertDescription>{loadError}</AlertDescription>
+              </Alert>
+            )}
 
-          {loadError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Unable to Load Data</AlertTitle>
-              <AlertDescription>{loadError}</AlertDescription>
-            </Alert>
-          )}
-
-          {hasActiveSession === false && !isLoading && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>No Active Session</AlertTitle>
-              <AlertDescription>
-                Please create a new session or load an existing session from the Session Management panel above to start logging infringements.
-              </AlertDescription>
-            </Alert>
-          )}
+            {hasActiveSession === false && !isLoading && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No Active Session</AlertTitle>
+                <AlertDescription>
+                  Please create a new session or load an existing session to start logging infringements.
+                </AlertDescription>
+              </Alert>
+            )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
               <InfringementForm onSubmit={handleNewInfringement} />
             </div>
             <div>
-              <PendingPenalties
-                penalties={pendingPenalties}
+              <PendingPenalties 
+                  penalties={pendingPenalties}
                 onApplyPenalty={handleApplyPenalty}
-                isProcessing={isApplyingPenalty}
+                  isProcessing={isApplyingPenalty}
               />
             </div>
           </div>
 
-          <InfringementLog
-            infringements={infringements}
+          <InfringementLog 
+            infringements={infringements} 
             onEdit={handleEditInfringement}
             onDelete={handleDeleteInfringement}
           />
 
-          {isLoading && (
-            <p className="text-sm text-muted-foreground">Loading data from server…</p>
-          )}
+            {isLoading && (
+              <p className="text-sm text-muted-foreground">Loading data from server…</p>
+            )}
         </div>
+        )}
 
         <EditInfringementDialog
           infringement={editingInfringement}

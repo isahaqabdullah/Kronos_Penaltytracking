@@ -2,7 +2,6 @@ import { AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
 import type { PendingPenalty } from '../api';
 
 interface PendingPenaltiesProps {
@@ -34,7 +33,7 @@ export function PendingPenalties({
         <p className="text-sm text-muted-foreground">Penalties requiring action</p>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px]">
+        <div className="h-[700px] overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -54,35 +53,51 @@ export function PendingPenalties({
                   </TableCell>
                 </TableRow>
               ) : (
-                penalties.map((penalty) => (
-                  <TableRow key={penalty.id} className="bg-red-50 dark:bg-red-900/10">
-                    <TableCell>{penalty.kart_number}</TableCell>
-                    <TableCell>{penalty.description}</TableCell>
-                    <TableCell>
-                      <span className="px-2 py-1 rounded-md bg-red-600 text-white">
-                        {penalty.penalty_description ?? '—'}
-                      </span>
-                    </TableCell>
-                    <TableCell>{penalty.observer ?? '—'}</TableCell>
-                    <TableCell>{formatTime(penalty.timestamp)}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end">
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          disabled={isProcessing}
-                          onClick={() => onApplyPenalty(penalty.id)}
+                penalties.map((penalty) => {
+                  const isWarningOnly = penalty.penalty_description === 'Warning';
+                  return (
+                    <TableRow
+                      key={penalty.id}
+                      className={isWarningOnly ? undefined : 'bg-red-50 dark:bg-red-900/10'}
+                    >
+                      <TableCell>{penalty.kart_number}</TableCell>
+                      <TableCell>{penalty.description}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`px-2 py-1 rounded-md ${
+                            isWarningOnly
+                              ? 'bg-yellow-500 text-black'
+                              : 'bg-red-600 text-white'
+                          }`}
                         >
-                          {isProcessing ? 'Applying...' : 'Apply Penalty'}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          {penalty.penalty_description ?? '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell>{penalty.observer ?? '—'}</TableCell>
+                      <TableCell>{formatTime(penalty.timestamp)}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant={isWarningOnly ? 'outline' : 'destructive'}
+                            disabled={isProcessing || isWarningOnly}
+                            onClick={() => onApplyPenalty(penalty.id)}
+                          >
+                            {isWarningOnly
+                              ? 'Warning Logged'
+                              : isProcessing
+                              ? 'Applying...'
+                              : 'Apply Penalty'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );

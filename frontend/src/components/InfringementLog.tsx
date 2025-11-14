@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { InfringementRecord } from '../api';
 
@@ -27,7 +26,7 @@ export function InfringementLog({ infringements, onEdit, onDelete }: Infringemen
         <CardTitle>Recent Infringements</CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px]">
+        <div className="h-[700px] overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -50,8 +49,28 @@ export function InfringementLog({ infringements, onEdit, onDelete }: Infringemen
                 </TableRow>
               ) : (
                 infringements.map((inf) => {
+                  const isWarning = inf.penalty_description === 'Warning';
                   const penaltyApplied =
-                    inf.penalty_due === 'No' && Boolean(inf.penalty_taken);
+                    inf.penalty_due === 'No' &&
+                    Boolean(inf.penalty_taken) &&
+                    !isWarning;
+
+                  let statusLabel = '';
+                  let statusVariant: 'default' | 'destructive' | 'outline' | 'secondary' = 'outline';
+
+                  if (penaltyApplied) {
+                    statusLabel = 'Applied';
+                    statusVariant = 'destructive';
+                  } else if (isWarning) {
+                    statusLabel = 'Warning';
+                    statusVariant = 'secondary';
+                  } else if (inf.penalty_due === 'Yes') {
+                    statusLabel = 'Pending';
+                    statusVariant = 'outline';
+                  } else {
+                    statusLabel = 'Cleared';
+                    statusVariant = 'outline';
+                  }
                   return (
                     <TableRow key={inf.id}>
                       <TableCell>{formatTime(inf.timestamp)}</TableCell>
@@ -61,13 +80,7 @@ export function InfringementLog({ infringements, onEdit, onDelete }: Infringemen
                       <TableCell>{inf.penalty_description ?? '—'}</TableCell>
                       <TableCell>{inf.observer ?? '—'}</TableCell>
                       <TableCell>
-                        {penaltyApplied ? (
-                          <Badge variant="destructive">Applied</Badge>
-                        ) : (
-                          <Badge variant="outline">
-                            {inf.penalty_due === 'Yes' ? 'Pending' : 'Cleared'}
-                          </Badge>
-                        )}
+                        <Badge variant={statusVariant}>{statusLabel}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-2">
@@ -93,7 +106,7 @@ export function InfringementLog({ infringements, onEdit, onDelete }: Infringemen
               )}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );

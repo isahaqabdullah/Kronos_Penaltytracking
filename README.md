@@ -1,4 +1,4 @@
-# Kronos Penalty Tracking System
+# Racelith Penalty Tracking System
 
 A full-stack race control and penalty management system built for Dubai Kartdrome to streamline endurance event operations.
 The system enables live tracking of infringements, penalties, and race sessions, complete with real-time WebSocket updates, multi-session database handling, and intuitive dashboards for race officials.
@@ -26,19 +26,32 @@ The system enables live tracking of infringements, penalties, and race sessions,
 
 ### Setup and Run
 
-**Option 1: Using the startup script (Recommended)**
+**Option 1: Quick setup (Recommended for first time)**
 ```bash
+# Run setup script (makes scripts executable and creates directories)
+./setup.sh
+
+# Then start the application
 ./start.sh
 ```
 
-**Option 2: Manual setup**
+**Option 2: Direct startup**
+```bash
+# Make script executable (if needed)
+chmod +x start.sh
+
+# Run the application
+./start.sh
+```
+
+**Option 3: Manual setup**
 ```bash
 # 1. Create the environment file
 cp backend/.env.example backend/.env
 
 # 2. Edit backend/.env and change the default password:
 #    POSTGRES_PASSWORD=CHANGE_THIS_PASSWORD
-#    DATABASE_URL=postgresql://kronos_user:CHANGE_THIS_PASSWORD@db:5432/kronos_db
+#    DATABASE_URL=postgresql://racelith_user:CHANGE_THIS_PASSWORD@db:5432/racelith_db
 
 # 3. Build and run everything
 docker-compose up --build -d
@@ -68,8 +81,24 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Stop and remove all data (including database):
+### Backups (CRITICAL for Production):
 ```bash
+# Manual backup (backs up all databases)
+./backup.sh
+
+# Automated daily backup (add to crontab)
+0 2 * * * cd /path/to/project && ./backup.sh
+
+# Restore from backup (if needed)
+./restore.sh backups/db_all_YYYYMMDD_HHMMSS.sql.gz
+```
+
+**⚠️ IMPORTANT**: See `DISASTER_RECOVERY.md` for complete failure analysis and recovery procedures.
+
+### ⚠️ DANGER: Stop and remove ALL data (including database):
+```bash
+# WARNING: This DELETES all data permanently!
+# Only use if you want to completely reset the system
 docker-compose down -v
 ```
 

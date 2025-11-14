@@ -23,14 +23,24 @@ import {
 } from './ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { ScrollArea } from './ui/scroll-area';
-import { Calendar, Plus, Play, Trash2, Loader2, RefreshCw } from 'lucide-react';
-import { API_BASE, listSessions, startSession, loadSession, deleteSession, type SessionSummary } from '../api';
+import { Calendar, Plus, Play, Trash2, Loader2, RefreshCw, Download } from 'lucide-react';
+import {
+  API_BASE,
+  listSessions,
+  startSession,
+  loadSession,
+  deleteSession,
+  exportSession,
+  type SessionSummary,
+} from '../api';
 
 interface SessionManagerProps {
   onSessionChange?: () => void;
+  onSessionSelected?: (sessionName: string) => void;
+  onSessionCreatedOrLoaded?: (sessionName: string) => void;
 }
 
-export function SessionManager({ onSessionChange }: SessionManagerProps) {
+export function SessionManager({ onSessionChange, onSessionSelected, onSessionCreatedOrLoaded }: SessionManagerProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -40,6 +50,7 @@ export function SessionManager({ onSessionChange }: SessionManagerProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [exportingSession, setExportingSession] = useState<string | null>(null);
 
   const loadSessions = async () => {
     try {
@@ -102,12 +113,16 @@ export function SessionManager({ onSessionChange }: SessionManagerProps) {
 
     try {
       setIsCreating(true);
-      await startSession(newSessionName.trim());
+      const sessionName = newSessionName.trim();
+      await startSession(sessionName);
       setCreateDialogOpen(false);
       setNewSessionName('');
       await loadSessions();
       if (onSessionChange) {
         onSessionChange();
+      }
+      if (onSessionCreatedOrLoaded) {
+        onSessionCreatedOrLoaded(sessionName);
       }
     } catch (error) {
       console.error('Failed to create session', error);
@@ -125,11 +140,26 @@ export function SessionManager({ onSessionChange }: SessionManagerProps) {
       if (onSessionChange) {
         onSessionChange();
       }
+      if (onSessionCreatedOrLoaded) {
+        onSessionCreatedOrLoaded(name);
+      }
     } catch (error) {
       console.error('Failed to load session', error);
       alert('Failed to load session.');
     } finally {
       setIsLoadingSession(false);
+    }
+  };
+
+  const handleSessionRowClick = async (session: SessionSummary) => {
+    // If session is not active, load it first
+    if (session.status !== 'active') {
+      await handleLoadSession(session.name);
+    } else {
+      // If already active, just navigate
+      if (onSessionSelected) {
+        onSessionSelected(session.name);
+      }
     }
   };
 
@@ -157,6 +187,23 @@ export function SessionManager({ onSessionChange }: SessionManagerProps) {
       alert('Failed to delete session.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleExport = async (sessionName: string, format: 'json' | 'csv' | 'excel') => {
+    console.log('🚀 handleExport called:', { sessionName, format });
+    try {
+      setExportingSession(sessionName);
+      console.log(`📤 Starting export: "${sessionName}" as ${format}...`);
+      await exportSession(sessionName, format);
+      console.log(`✅ Successfully exported session "${sessionName}" as ${format}`);
+    } catch (error) {
+      console.error('❌ Failed to export session', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to export session as ${format.toUpperCase()}.\n\nError: ${errorMessage}`);
+    } finally {
+      setExportingSession(null);
+      console.log('🏁 Export process finished');
     }
   };
 
@@ -190,7 +237,10 @@ export function SessionManager({ onSessionChange }: SessionManagerProps) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => void loadSessions()}
+                onClick={() => {
+                  console.log('🔄 Refresh button clicked');
+                  void loadSessions();
+                }}
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -198,7 +248,10 @@ export function SessionManager({ onSessionChange }: SessionManagerProps) {
               </Button>
               <Button
                 size="sm"
-                onClick={() => setCreateDialogOpen(true)}
+                onClick={() => {
+                  console.log('➕ New Session button clicked');
+                  setCreateDialogOpen(true);
+                }}
                 disabled={isLoading}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -234,7 +287,11 @@ export function SessionManager({ onSessionChange }: SessionManagerProps) {
                 </TableHeader>
                 <TableBody>
                   {sessions.map((session) => (
-                    <TableRow key={session.name}>
+                    <TableRow 
+                      key={session.name}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSessionRowClick(session)}
+                    >
                       <TableCell className="font-medium">{session.name}</TableCell>
                       <TableCell>
                         <Badge
@@ -246,19 +303,54 @@ export function SessionManager({ onSessionChange }: SessionManagerProps) {
                       <TableCell className="text-muted-foreground">
                         {formatDate(session.started_at)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell 
+                        onClick={(e) => {
+                          console.log('📋 TableCell clicked');
+                          e.stopPropagation();
+                        }}
+                        onMouseDown={(e) => {
+                          console.log('📋 TableCell mouseDown');
+                          e.stopPropagation();
+                        }}
+                      >
                         <div className="flex justify-end gap-2">
                           {session.status !== 'active' && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleLoadSession(session.name)}
+                              onClick={(e) => {
+                                console.log('▶️ Load button clicked for:', session.name);
+                                e.stopPropagation();
+                                void handleLoadSession(session.name);
+                              }}
                               disabled={isLoadingSession}
                             >
                               <Play className="h-4 w-4 mr-1" />
                               Load
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={exportingSession === session.name}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              console.log('📥 Export button clicked for:', session.name);
+                              void handleExport(session.name, 'excel');
+                            }}
+                          >
+                            {exportingSession === session.name ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                Exporting...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4 mr-1" />
+                                Export Excel
+                              </>
+                            )}
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"

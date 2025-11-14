@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import ProgrammingError, OperationalError
 from datetime import datetime, timezone, timedelta
-import asyncio
 import json
 
 from ..database import get_db
@@ -32,11 +31,11 @@ def handle_db_error(e: Exception):
         )
 
 @router.post("/", response_model=InfringementResponse)
-def create_infringement(payload: InfringementCreate, db: Session = Depends(get_db)):
+def create_infringement(payload: InfringementCreate, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
     """
     Create an infringement with proper warning/penalty logic.
-    - White line: accumulates warnings (expire after 180 minutes).
-    - Yellow zone: automatic penalty.
+    - White line: accumulates warnings (expire after 180 minutes), 3 warnings = penalty.
+    - All other infringements: use penalty_description from payload if provided.
     """
     try:
         desc_lower = payload.description.strip().lower()
@@ -47,12 +46,8 @@ def create_infringement(payload: InfringementCreate, db: Session = Depends(get_d
         penalty_due = "No"
         penalty_description = None
 
-        if "yellow zone infringement" in desc_lower:
-            warning_count = 0
-            penalty_due = "Yes"
-            penalty_description = "5 sec Stop & Go"
-
-        elif "white line infringement" in desc_lower:
+        if "white line infringement" in desc_lower:
+            # White line: special warning accumulation logic (180 min expiry, 3 warnings = penalty)
             # Get *non-expired* white line infringements for this kart
             valid_white_infringements = db.query(Infringement).filter(
                 Infringement.kart_number == payload.kart_number,
@@ -70,10 +65,14 @@ def create_infringement(payload: InfringementCreate, db: Session = Depends(get_d
                 penalty_description = "Warning"
 
         else:
-            # Generic / other infringements
+            # All other infringements (yellow zone, generic, etc.): use penalty_description from payload
             warning_count = 1
-            penalty_due = "No"
-            penalty_description = None
+            if payload.penalty_description:
+                penalty_due = "Yes"
+                penalty_description = payload.penalty_description
+            else:
+                penalty_due = "No"
+                penalty_description = None
 
         # Create infringement record
         new_inf = Infringement(
@@ -104,8 +103,8 @@ def create_infringement(payload: InfringementCreate, db: Session = Depends(get_d
         db.commit()
 
         # Broadcast asynchronously
-        try:
-            asyncio.create_task(manager.broadcast(json.dumps({
+        if background_tasks:
+            background_tasks.add_task(manager.broadcast, json.dumps({
                 "type": "new_infringement",
                 "data": {
                     "id": new_inf.id,
@@ -116,9 +115,7 @@ def create_infringement(payload: InfringementCreate, db: Session = Depends(get_d
                     "penalty_description": new_inf.penalty_description,
                     "timestamp": new_inf.timestamp.isoformat()
                 }
-            })))
-        except Exception:
-            pass
+            }))
 
         return new_inf
     except (ProgrammingError, OperationalError) as e:
@@ -148,7 +145,8 @@ def list_infringements(db: Session = Depends(get_db)):
 def update_infringement(
     infringement_id: int,
     payload: InfringementCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None
 ):
     """Update an infringement while keeping warning/penalty logic consistent and broadcasting updates."""
     try:
@@ -165,28 +163,39 @@ def update_infringement(
 
         # --- Re-evaluate logic (same as create) ---
         desc_lower = payload.description.strip().lower()
+        now = datetime.now(timezone.utc)
+        expiry_threshold = now - timedelta(minutes=180)
         warning_count = 0
         penalty_due = "No"
         penalty_description = None
 
-        if "yellow zone infringement" in desc_lower:
-            penalty_due = "Yes"
-            penalty_description = "5 sec Stop & Go"
-        elif "white line infringement" in desc_lower:
-            # Recalculate based on other white line infringements for this kart
-            previous_white = db.query(Infringement).filter(
+        if "white line infringement" in desc_lower:
+            # White line: special warning accumulation logic (180 min expiry, 3 warnings = penalty)
+            # Get *non-expired* white line infringements for this kart (excluding current one)
+            valid_white_infringements = db.query(Infringement).filter(
                 Infringement.kart_number == payload.kart_number,
                 Infringement.description.ilike("%white line infringement%"),
+                Infringement.timestamp >= expiry_threshold,
                 Infringement.id != inf.id
-            ).count()
-            warning_count = previous_white + 1
+            ).order_by(Infringement.timestamp.desc()).all()
+
+            warning_count = len(valid_white_infringements) + 1  # +1 for current one
+
             if warning_count >= 3:
                 penalty_due = "Yes"
                 penalty_description = "5 sec Stop & Go"
             else:
+                penalty_due = "No"
                 penalty_description = "Warning"
         else:
+            # All other infringements (yellow zone, generic, etc.): use penalty_description from payload
             warning_count = 1
+            if payload.penalty_description:
+                penalty_due = "Yes"
+                penalty_description = payload.penalty_description
+            else:
+                penalty_due = "No"
+                penalty_description = None
 
         inf.warning_count = warning_count
         inf.penalty_due = penalty_due
@@ -208,8 +217,8 @@ def update_infringement(
         db.commit()
 
         # --- Broadcast update ---
-        try:
-            asyncio.create_task(manager.broadcast(json.dumps({
+        if background_tasks:
+            background_tasks.add_task(manager.broadcast, json.dumps({
                 "type": "update_infringement",
                 "data": {
                     "id": inf.id,
@@ -220,9 +229,7 @@ def update_infringement(
                     "penalty_description": inf.penalty_description,
                     "timestamp": inf.timestamp.isoformat()
                 }
-            })))
-        except Exception:
-            pass
+            }))
 
         return inf
     except (ProgrammingError, OperationalError) as e:
@@ -239,7 +246,7 @@ def update_infringement(
 
 
 @router.delete("/{infringement_id}")
-def delete_infringement(infringement_id: int, db: Session = Depends(get_db)):
+def delete_infringement(infringement_id: int, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
     """Delete an infringement, record in history, and broadcast removal."""
     try:
         inf = db.query(Infringement).filter(Infringement.id == infringement_id).first()
@@ -261,15 +268,13 @@ def delete_infringement(infringement_id: int, db: Session = Depends(get_db)):
         db.commit()
 
         # --- Broadcast delete ---
-        try:
-            asyncio.create_task(manager.broadcast(json.dumps({
+        if background_tasks:
+            background_tasks.add_task(manager.broadcast, json.dumps({
                 "type": "delete_infringement",
                 "data": {
                     "id": infringement_id
                 }
-            })))
-        except Exception:
-            pass
+            }))
 
         return {"status": "deleted", "id": infringement_id}
     except (ProgrammingError, OperationalError) as e:

@@ -126,7 +126,19 @@ export function EditInfringementDialog({
 
           <div className="space-y-2">
             <Label htmlFor="edit-infringement">Infringement</Label>
-            <Select value={infringementType} onValueChange={setInfringementType} required>
+            <Select
+              value={infringementType}
+              onValueChange={(value: string) => {
+                setInfringementType(value);
+                if (
+                  value === 'White Line Infringement' ||
+                  value === 'Yellow Zone Infringement'
+                ) {
+                  setPenaltyDescription('Warning');
+                }
+              }}
+              required
+            >
               <SelectTrigger id="edit-infringement">
                 <SelectValue placeholder="Select infringement type" />
               </SelectTrigger>

@@ -79,3 +79,7 @@ backend/session_exports/*
 htmlcov/
 .nyc_output/
 
+# Documentation (Markdown files)
+*.md
+!README.md
+
