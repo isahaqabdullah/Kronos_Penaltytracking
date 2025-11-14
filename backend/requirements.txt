@@ -6,3 +6,5 @@ sqlalchemy
 alembic
 python-dotenv
 openpyxl
+python-dateutil
+python-multipart

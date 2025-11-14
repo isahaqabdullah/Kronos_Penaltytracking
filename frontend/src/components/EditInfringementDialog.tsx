@@ -144,6 +144,7 @@ export function EditInfringementDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="White Line Infringement">White Line Infringement</SelectItem>
+                <SelectItem value="Pit Time Infringement">Pit Time Infringement</SelectItem>
                 <SelectItem value="Yellow Zone Infringement">Yellow Zone Infringement</SelectItem>
                 <SelectItem value="Track Limits">Track Limits</SelectItem>
                 <SelectItem value="Dangerous Driving">Dangerous Driving</SelectItem>

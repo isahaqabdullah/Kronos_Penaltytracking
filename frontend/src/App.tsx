@@ -68,7 +68,7 @@ export default function App() {
       }
       try {
         // First check if there's an active session
-        const hasActive = await checkActiveSession();
+        const { hasActive } = await checkActiveSession();
         
         if (!hasActive) {
           setHasActiveSession(false);
@@ -156,6 +156,7 @@ export default function App() {
           'session_loaded',
           'session_closed',
           'session_deleted',
+          'session_imported',
         ]);
         if (message?.type && relevantTypes.has(message.type)) {
           void loadData(false);

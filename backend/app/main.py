@@ -1,15 +1,43 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from .routes import session, infringements, penalties, history, infringement_log
 from .ws_manager import manager
-from .database import init_db, switch_session_db
+from .database import init_db, switch_session_db, ControlSessionLocal
+from .models import SessionInfo
+import logging
+
+logger = logging.getLogger(__name__)
+
+# --- Startup: Restore active session ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    # --- Initialize control database ---
+    # Only the control DB tracks session metadata
+    init_db()
+    
+    # Restore active session if one exists
+    try:
+        db = ControlSessionLocal()
+        try:
+            active_session = db.query(SessionInfo).filter(SessionInfo.status == "active").first()
+            if active_session:
+                try:
+                    switch_session_db(active_session.name)
+                    logger.info(f"Restored active session: {active_session.name}")
+                except Exception as e:
+                    logger.warning(f"Could not restore active session '{active_session.name}': {e}")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Error restoring active session on startup: {e}")
+    
+    yield
+    # Shutdown (if needed)
 
 # --- FastAPI app ---
-app = FastAPI(title="Karting Infringement System", version="1.1")
-
-# --- Initialize control database ---
-# Only the control DB tracks session metadata
-init_db()
+app = FastAPI(title="Karting Infringement System", version="1.1", lifespan=lifespan)
 
 # --- CORS Middleware ---
 import os

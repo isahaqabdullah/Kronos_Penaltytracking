@@ -172,6 +172,25 @@ export async function listSessions(): Promise<{ sessions: SessionSummary[] }> {
   return request<{ sessions: SessionSummary[] }>('/session/');
 }
 
+export async function importSession(file: File): Promise<{ status: string; session_name: string; imported: { infringements: number; history: number } }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE}/session/import`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(
+      `Import failed (${response.status} ${response.statusText}): ${message}`
+    );
+  }
+
+  return (await response.json()) as { status: string; session_name: string; imported: { infringements: number; history: number } };
+}
+
 export async function exportSession(
   name: string,
   format: 'json' | 'csv' | 'excel' = 'json'
@@ -222,9 +241,45 @@ export async function exportSession(
       throw new Error('Received empty file from server');
     }
     
-    console.log(`Downloading file: ${filename} (${blob.size} bytes)`);
+    console.log(`Saving file: ${filename} (${blob.size} bytes)`);
     
-    // Create download link
+    // Try to use File System Access API for "Save As" dialog (modern browsers)
+    // @ts-ignore - File System Access API types may not be available
+    if ('showSaveFilePicker' in window) {
+      try {
+        // @ts-ignore
+        const fileHandle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [
+            {
+              description: format === 'excel' ? 'Excel Spreadsheet' : format === 'csv' ? 'CSV File' : 'JSON File',
+              accept: {
+                [format === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 
+                 format === 'csv' ? 'text/csv' : 'application/json']: [`.${extension}`]
+              }
+            }
+          ]
+        });
+        
+        // Write the blob to the selected file
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        
+        console.log(`✅ File saved successfully via File System Access API`);
+        return;
+      } catch (error: any) {
+        // User cancelled the dialog or API failed - fall back to download
+        if (error.name === 'AbortError') {
+          console.log('User cancelled file save');
+          return; // User cancelled, don't show error
+        }
+        console.warn('File System Access API failed, falling back to download:', error);
+        // Fall through to download method
+      }
+    }
+    
+    // Fallback: Use traditional download method (for older browsers or if File System API fails)
     const downloadUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = downloadUrl;

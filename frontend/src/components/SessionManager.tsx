@@ -23,7 +23,7 @@ import {
 } from './ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { ScrollArea } from './ui/scroll-area';
-import { Calendar, Plus, Play, Trash2, Loader2, RefreshCw, Download } from 'lucide-react';
+import { Calendar, Plus, Play, Trash2, Loader2, RefreshCw, Download, Upload } from 'lucide-react';
 import {
   API_BASE,
   listSessions,
@@ -31,6 +31,7 @@ import {
   loadSession,
   deleteSession,
   exportSession,
+  importSession,
   type SessionSummary,
 } from '../api';
 
@@ -51,6 +52,9 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [exportingSession, setExportingSession] = useState<string | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
   const loadSessions = async () => {
     try {
@@ -207,6 +211,48 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
     }
   };
 
+  const handleImport = async () => {
+    if (!importFile) {
+      return;
+    }
+
+    try {
+      setIsImporting(true);
+      const result = await importSession(importFile);
+      setImportDialogOpen(false);
+      setImportFile(null);
+      await loadSessions();
+      if (onSessionChange) {
+        onSessionChange();
+      }
+      if (onSessionCreatedOrLoaded && result.session_name) {
+        onSessionCreatedOrLoaded(result.session_name);
+      }
+      alert(
+        `Session imported successfully!\n\n` +
+        `Infringements: ${result.imported.infringements}\n` +
+        `History records: ${result.imported.history}`
+      );
+    } catch (error) {
+      console.error('Failed to import session', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to import session.\n\nError: ${errorMessage}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls') && !file.name.endsWith('.csv')) {
+        alert('Please select an Excel file (.xlsx or .xls) or CSV file (.csv)');
+        return;
+      }
+      setImportFile(file);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '—';
     try {
@@ -245,6 +291,17 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setImportDialogOpen(true);
+                }}
+                disabled={isLoading || isImporting}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import Excel
               </Button>
               <Button
                 size="sm"
@@ -445,6 +502,57 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Import Session Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Session from Excel</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="import-file">Select Excel File</Label>
+              <Input
+                id="import-file"
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileSelect}
+                disabled={isImporting}
+              />
+              {importFile && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {importFile.name} ({(importFile.size / 1024).toFixed(2)} KB)
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                The file should be in the format exported by this application (Excel .xlsx or CSV .csv).
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportDialogOpen(false);
+                setImportFile(null);
+              }}
+              disabled={isImporting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleImport} disabled={isImporting || !importFile}>
+              {isImporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                'Import Session'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
