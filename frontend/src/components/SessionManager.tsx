@@ -361,11 +361,11 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
                         {formatDate(session.started_at)}
                       </TableCell>
                       <TableCell 
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLTableCellElement>) => {
                           console.log('📋 TableCell clicked');
                           e.stopPropagation();
                         }}
-                        onMouseDown={(e) => {
+                        onMouseDown={(e: React.MouseEvent<HTMLTableCellElement>) => {
                           console.log('📋 TableCell mouseDown');
                           e.stopPropagation();
                         }}
@@ -375,7 +375,7 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={(e) => {
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 console.log('▶️ Load button clicked for:', session.name);
                                 e.stopPropagation();
                                 void handleLoadSession(session.name);
@@ -390,7 +390,7 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
                             size="sm"
                             variant="outline"
                             disabled={exportingSession === session.name}
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation();
                               console.log('📥 Export button clicked for:', session.name);
                               void handleExport(session.name, 'excel');
