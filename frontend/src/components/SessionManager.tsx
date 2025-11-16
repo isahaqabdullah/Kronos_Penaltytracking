@@ -301,7 +301,7 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
                 disabled={isLoading || isImporting}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Import Excel
+                Import 
               </Button>
               <Button
                 size="sm"
@@ -404,7 +404,7 @@ export function SessionManager({ onSessionChange, onSessionSelected, onSessionCr
                             ) : (
                               <>
                                 <Download className="h-4 w-4 mr-1" />
-                                Export Excel
+                                Export 
                               </>
                             )}
                           </Button>

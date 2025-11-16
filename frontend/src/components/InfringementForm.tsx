@@ -2,9 +2,34 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Combobox } from './ui/combobox';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import type { CreateInfringementPayload } from '../api';
+
+const INFRINGEMENT_OPTIONS = [
+  'White Line Infringement',
+  'Pit Time Infringement',
+  'Yellow Zone Infringement',
+  'Track Limits',
+  'Dangerous Driving',
+  'Blocking',
+  'Collision',
+  'Unsafe Re-entry',
+  'Ignoring Flags',
+  'Pit Lane Speed',
+  'Other',
+];
+
+const PENALTY_OPTIONS = [
+  'Warning',
+  '5 Sec',
+  '10 Sec',
+  'Fastest Lap Invalidation',
+  'Stop and Go',
+  'Drive Through',
+  'Time Penalty',
+  'Disqualification',
+];
 
 interface InfringementFormProps {
   onSubmit: (payload: CreateInfringementPayload) => Promise<void> | void;
@@ -99,8 +124,23 @@ export function InfringementForm({ onSubmit }: InfringementFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="infringement">Infringement</Label>
-            <Select
+            <div className="flex items-center justify-between">
+              <Label htmlFor="infringement">Infringement</Label>
+              {infringement && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setInfringement('')}
+                  className="h-auto py-1 px-2 text-xs"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            <Combobox
+              id="infringement"
+              options={INFRINGEMENT_OPTIONS}
               value={infringement}
               onValueChange={(value: string) => {
                 setInfringement(value);
@@ -111,43 +151,34 @@ export function InfringementForm({ onSubmit }: InfringementFormProps) {
                   setPenaltyDescription('Warning');
                 }
               }}
+              placeholder="Select or type infringement type"
               required
-            >
-              <SelectTrigger id="infringement">
-                <SelectValue placeholder="Select infringement type" />
-              </SelectTrigger>
-              <SelectContent>
-                  <SelectItem value="White Line Infringement">White Line Infringement</SelectItem>
-                  <SelectItem value="Pit Time Infringement">Pit Time Infringement</SelectItem>
-                  <SelectItem value="Yellow Zone Infringement">Yellow Zone Infringement</SelectItem>
-                  <SelectItem value="Track Limits">Track Limits</SelectItem>
-                  <SelectItem value="Dangerous Driving">Dangerous Driving</SelectItem>
-                  <SelectItem value="Blocking">Blocking</SelectItem>
-                  <SelectItem value="Collision">Collision</SelectItem>
-                  <SelectItem value="Unsafe Re-entry">Unsafe Re-entry</SelectItem>
-                  <SelectItem value="Ignoring Flags">Ignoring Flags</SelectItem>
-                  <SelectItem value="Pit Lane Speed">Pit Lane Speed</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="penaltyDescription">Penalty Description</Label>
-            <Select value={penaltyDescription} onValueChange={setPenaltyDescription} required>
-              <SelectTrigger id="penaltyDescription">
-                <SelectValue placeholder="Select penalty type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Warning">Warning</SelectItem>
-                <SelectItem value="5 Sec">5 Sec</SelectItem>
-                <SelectItem value="10 Sec">10 Sec</SelectItem>
-                <SelectItem value="Stop and Go">Stop and Go</SelectItem>
-                <SelectItem value="Drive Through">Drive Through</SelectItem>
-                <SelectItem value="Time Penalty">Time Penalty</SelectItem>
-                <SelectItem value="Disqualification">Disqualification</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="penaltyDescription">Penalty Description</Label>
+              {penaltyDescription && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPenaltyDescription('')}
+                  className="h-auto py-1 px-2 text-xs"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            <Combobox
+              id="penaltyDescription"
+              options={PENALTY_OPTIONS}
+              value={penaltyDescription}
+              onValueChange={setPenaltyDescription}
+              placeholder="Select or type penalty type"
+              required
+            />
           </div>
 
           <Button type="submit" className="w-full">

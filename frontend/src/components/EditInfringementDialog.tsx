@@ -9,8 +9,33 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Combobox } from './ui/combobox';
 import type { UpdateInfringementPayload, InfringementRecord } from '../api';
+
+const INFRINGEMENT_OPTIONS = [
+  'White Line Infringement',
+  'Pit Time Infringement',
+  'Yellow Zone Infringement',
+  'Track Limits',
+  'Dangerous Driving',
+  'Blocking',
+  'Collision',
+  'Unsafe Re-entry',
+  'Ignoring Flags',
+  'Pit Lane Speed',
+  'Other',
+];
+
+const PENALTY_OPTIONS = [
+  'Warning',
+  '5 Sec',
+  '10 Sec',
+  'Fastest Lap Invalidation',
+  'Stop and Go',
+  'Drive Through',
+  'Time Penalty',
+  'Disqualification',
+];
 
 interface EditInfringementDialogProps {
   infringement: InfringementRecord | null;
@@ -126,7 +151,9 @@ export function EditInfringementDialog({
 
           <div className="space-y-2">
             <Label htmlFor="edit-infringement">Infringement</Label>
-            <Select
+            <Combobox
+              id="edit-infringement"
+              options={INFRINGEMENT_OPTIONS}
               value={infringementType}
               onValueChange={(value: string) => {
                 setInfringementType(value);
@@ -137,43 +164,21 @@ export function EditInfringementDialog({
                   setPenaltyDescription('Warning');
                 }
               }}
+              placeholder="Select or type infringement type"
               required
-            >
-              <SelectTrigger id="edit-infringement">
-                <SelectValue placeholder="Select infringement type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="White Line Infringement">White Line Infringement</SelectItem>
-                <SelectItem value="Pit Time Infringement">Pit Time Infringement</SelectItem>
-                <SelectItem value="Yellow Zone Infringement">Yellow Zone Infringement</SelectItem>
-                <SelectItem value="Track Limits">Track Limits</SelectItem>
-                <SelectItem value="Dangerous Driving">Dangerous Driving</SelectItem>
-                <SelectItem value="Blocking">Blocking</SelectItem>
-                <SelectItem value="Collision">Collision</SelectItem>
-                <SelectItem value="Unsafe Re-entry">Unsafe Re-entry</SelectItem>
-                <SelectItem value="Ignoring Flags">Ignoring Flags</SelectItem>
-                <SelectItem value="Pit Lane Speed">Pit Lane Speed</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="edit-penaltyDescription">Penalty Description</Label>
-            <Select value={penaltyDescription} onValueChange={setPenaltyDescription} required>
-              <SelectTrigger id="edit-penaltyDescription">
-                <SelectValue placeholder="Select penalty type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Warning">Warning</SelectItem>
-                <SelectItem value="5 Sec">5 Sec</SelectItem>
-                <SelectItem value="10 Sec">10 Sec</SelectItem>
-                <SelectItem value="Stop and Go">Stop and Go</SelectItem>
-                <SelectItem value="Drive Through">Drive Through</SelectItem>
-                <SelectItem value="Time Penalty">Time Penalty</SelectItem>
-                <SelectItem value="Disqualification">Disqualification</SelectItem>
-              </SelectContent>
-            </Select>
+            <Combobox
+              id="edit-penaltyDescription"
+              options={PENALTY_OPTIONS}
+              value={penaltyDescription}
+              onValueChange={setPenaltyDescription}
+              placeholder="Select or type penalty type"
+              required
+            />
           </div>
         </div>
         <DialogFooter>
