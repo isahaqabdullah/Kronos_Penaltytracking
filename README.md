@@ -229,4 +229,4 @@ Full API documentation available at `/docs` when the backend is running.
 ## Impact
 
 - Reduced manual penalty reconciliation time by approximately 70%
-- Established a reusable framework for future FIA event automation at Dubai Kartdrome
+- Established a reusable framework for future event automation at Dubai Kartdrome

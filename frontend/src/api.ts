@@ -305,3 +305,18 @@ export async function exportSession(
   }
 }
 
+export interface AppConfig {
+  warning_expiry_minutes: number;
+}
+
+export async function getConfig(): Promise<AppConfig> {
+  return request<AppConfig>('/api/config');
+}
+
+export async function updateConfig(config: AppConfig): Promise<AppConfig> {
+  return request<AppConfig>('/api/config', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+}
+

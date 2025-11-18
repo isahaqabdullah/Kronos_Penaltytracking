@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models import Infringement, InfringementHistory
 from ..schemas import InfringementCreate, InfringementResponse
 from ..ws_manager import manager
+from ..vars import get_warning_expiry_minutes
 
 router = APIRouter(tags=["Infringements"])
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def create_infringement(payload: InfringementCreate, db: Session = Depends(get_d
     try:
         desc_lower = payload.description.strip().lower()
         now = datetime.now(timezone.utc)
-        expiry_threshold = now - timedelta(minutes=180)
+        expiry_threshold = now - timedelta(minutes=get_warning_expiry_minutes())
 
         warning_count = 0
         penalty_due = "No"
@@ -191,7 +192,7 @@ def update_infringement(
         # --- Re-evaluate logic (same as create) ---
         desc_lower = payload.description.strip().lower()
         now = datetime.now(timezone.utc)
-        expiry_threshold = now - timedelta(minutes=180)
+        expiry_threshold = now - timedelta(minutes=get_warning_expiry_minutes())
         warning_count = 0
         penalty_due = "No"
         penalty_description = None

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { InfringementForm } from './components/InfringementForm';
 import { InfringementLog } from './components/InfringementLog';
 import { PendingPenalties } from './components/PendingPenalties';
@@ -8,6 +8,8 @@ import { CheckeredFlag } from './components/CheckeredFlag';
 import { RacelithLogo } from './components/RacelithLogo';
 import { Alert, AlertDescription, AlertTitle } from './components/ui/alert';
 import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -19,6 +21,8 @@ import {
   fetchPendingPenalties,
   updateInfringement as updateInfringementApi,
   listSessions,
+  getConfig,
+  updateConfig,
 } from './api';
 import type {
   CreateInfringementPayload,
@@ -43,6 +47,22 @@ export default function App() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [warningExpiryMinutes, setWarningExpiryMinutes] = useState<number>(180);
+  const popupWindowRef = useRef<Window | null>(null);
+
+  // Fetch config from backend on mount
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const config = await getConfig();
+        setWarningExpiryMinutes(config.warning_expiry_minutes);
+      } catch (error) {
+        console.error('Failed to fetch config, using default:', error);
+        // Keep default value of 180
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const checkActiveSession = useCallback(async () => {
     try {
@@ -175,6 +195,41 @@ export default function App() {
     };
   }, [loadData]);
 
+  // Listen for messages from popup windows (for edit/delete actions)
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'editInfringement') {
+        const infringement = infringements.find(inf => inf.id === event.data.id);
+        if (infringement) {
+          setEditingInfringement(infringement);
+          setEditDialogOpen(true);
+        }
+      } else if (event.data?.type === 'deleteInfringement') {
+        try {
+          await deleteInfringement(event.data.id);
+          setInfringements((prev) => prev.filter((inf) => inf.id !== event.data.id));
+          setPendingPenalties((prev) => prev.filter((penalty) => penalty.id !== event.data.id));
+          toast.success('Infringement deleted successfully');
+          await loadData(false);
+          // Notify popup window (though it will also get WebSocket update)
+          if (popupWindowRef.current && !popupWindowRef.current.closed) {
+            popupWindowRef.current.postMessage({ type: 'updateInfringements' }, '*');
+          }
+        } catch (error: any) {
+          console.error('Failed to delete infringement', error);
+          toast.error('Error Deleting Infringement', {
+            description: error?.message || 'Failed to delete infringement',
+          });
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [infringements, loadData, deleteInfringement]);
+
   const handleNewInfringement = async (payload: CreateInfringementPayload) => {
     try {
       const record = await createInfringement({
@@ -185,6 +240,10 @@ export default function App() {
       const pending = await fetchPendingPenalties();
       setPendingPenalties(pending);
       toast.success('Infringement created successfully');
+      // Notify popup window
+      if (popupWindowRef.current && !popupWindowRef.current.closed) {
+        popupWindowRef.current.postMessage({ type: 'updateInfringements' }, '*');
+      }
     } catch (error: any) {
       console.error('Failed to create infringement', error);
       const errorMessage = error?.message || 'Failed to create infringement';
@@ -202,6 +261,10 @@ export default function App() {
       await applyIndividualPenalty(id, DEFAULT_PERFORMED_BY);
       await loadData();
       toast.success('Penalty applied successfully');
+      // Notify popup window
+      if (popupWindowRef.current && !popupWindowRef.current.closed) {
+        popupWindowRef.current.postMessage({ type: 'updateInfringements' }, '*');
+      }
     } catch (error: any) {
       console.error('Failed to apply penalty', error);
       toast.error('Error Applying Penalty', {
@@ -230,6 +293,10 @@ export default function App() {
       const pending = await fetchPendingPenalties();
       setPendingPenalties(pending);
       toast.success('Infringement updated successfully');
+      // Notify popup window
+      if (popupWindowRef.current && !popupWindowRef.current.closed) {
+        popupWindowRef.current.postMessage({ type: 'updateInfringements' }, '*');
+      }
     } catch (error: any) {
       console.error('Failed to update infringement', error);
       toast.error('Error Updating Infringement', {
@@ -243,9 +310,13 @@ export default function App() {
   const handleDeleteInfringement = async (id: number) => {
     try {
       await deleteInfringement(id);
-    setInfringements((prev) => prev.filter((inf) => inf.id !== id));
+      setInfringements((prev) => prev.filter((inf) => inf.id !== id));
       setPendingPenalties((prev) => prev.filter((penalty) => penalty.id !== id));
       toast.success('Infringement deleted successfully');
+      // Notify popup window
+      if (popupWindowRef.current && !popupWindowRef.current.closed) {
+        popupWindowRef.current.postMessage({ type: 'updateInfringements' }, '*');
+      }
     } catch (error: any) {
       console.error('Failed to delete infringement', error);
       toast.error('Error Deleting Infringement', {
@@ -285,9 +356,41 @@ export default function App() {
                   <p className="text-sm text-muted-foreground">Active Session</p>
                   <p className="font-semibold">{activeSessionName}</p>
                 </div>
-                <Button variant="outline" onClick={handleBackToSessions}>
-                  ← Back to Sessions
-                </Button>
+                <div className="flex flex-col gap-2 items-end">
+                  <Button variant="outline" onClick={handleBackToSessions}>
+                    ← Back to Sessions
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="warning-expiry" className="text-xs text-muted-foreground whitespace-nowrap">
+                      Warning Expiry (min):
+                    </Label>
+                    <Input
+                      id="warning-expiry"
+                      type="number"
+                      min="1"
+                      value={warningExpiryMinutes}
+                      onChange={async (e) => {
+                        const value = parseInt(e.target.value, 10);
+                        if (!isNaN(value) && value > 0) {
+                          setWarningExpiryMinutes(value);
+                          try {
+                            await updateConfig({ warning_expiry_minutes: value });
+                            toast.success('Warning expiry updated successfully');
+                          } catch (error: any) {
+                            console.error('Failed to update config:', error);
+                            toast.error('Error Updating Config', {
+                              description: error?.message || 'Failed to update warning expiry',
+                            });
+                            // Revert to previous value on error
+                            const config = await getConfig();
+                            setWarningExpiryMinutes(config.warning_expiry_minutes);
+                          }
+                        }
+                      }}
+                      className="w-20 h-8 text-sm"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -338,6 +441,10 @@ export default function App() {
             infringements={infringements} 
             onEdit={handleEditInfringement}
             onDelete={handleDeleteInfringement}
+            warningExpiryMinutes={warningExpiryMinutes}
+            onPopupOpened={(window) => {
+              popupWindowRef.current = window;
+            }}
           />
 
             {isLoading && (

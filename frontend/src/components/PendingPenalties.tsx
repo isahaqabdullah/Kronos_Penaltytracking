@@ -40,7 +40,6 @@ export function PendingPenalties({
                 <TableHead>Kart #</TableHead>
                 <TableHead>Infringement</TableHead>
                 <TableHead>Penalty</TableHead>
-                <TableHead>Observer</TableHead>
                 <TableHead>Time</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -48,7 +47,7 @@ export function PendingPenalties({
             <TableBody>
               {penalties.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
                     No pending penalties
                   </TableCell>
                 </TableRow>
@@ -73,7 +72,6 @@ export function PendingPenalties({
                           {penalty.penalty_description ?? '—'}
                         </span>
                       </TableCell>
-                      <TableCell>{penalty.observer ?? '—'}</TableCell>
                       <TableCell>{formatTime(penalty.timestamp)}</TableCell>
                       <TableCell>
                         <div className="flex justify-end">

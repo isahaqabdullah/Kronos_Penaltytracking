@@ -12,6 +12,13 @@ class SessionInfo(Base):
     started_at = Column(DateTime(timezone=True))
     status = Column(String)  # "active" or "closed"
 
+class AppConfig(Base):
+    __tablename__ = "app_config"
+    id = Column(Integer, primary_key=True)
+    key = Column(String, unique=True, index=True)
+    value = Column(String)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
 # === Per-session DB Models ===
 class Infringement(Base):
     __tablename__ = "infringements"

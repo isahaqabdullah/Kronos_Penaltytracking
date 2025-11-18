@@ -155,6 +155,17 @@ def export_session_excel(session_name: str, infringements: list, session_info: d
         ws["B4"] = session_info.get("started_at", "")
         ws.append([])  # Empty row
     
+    # Helper function to format timestamp as hh:mm:ss
+    def format_time(timestamp_str):
+        if not timestamp_str:
+            return ""
+        try:
+            # Parse ISO format timestamp
+            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            return dt.strftime("%H:%M:%S")
+        except (ValueError, AttributeError):
+            return str(timestamp_str) if timestamp_str else ""
+    
     # Write infringements header
     start_row = 6 if session_info else 1
     headers = [
@@ -169,6 +180,9 @@ def export_session_excel(session_name: str, infringements: list, session_info: d
     
     # Write infringement data
     for inf in infringements:
+        timestamp_str = inf.get("timestamp", "")
+        penalty_taken_str = inf.get("penalty_taken", "")
+        
         row = [
             inf.get("id", ""),
             inf.get("kart_number", ""),
@@ -178,8 +192,8 @@ def export_session_excel(session_name: str, infringements: list, session_info: d
             inf.get("warning_count", ""),
             inf.get("penalty_due", ""),
             inf.get("penalty_description", ""),
-            inf.get("penalty_taken", ""),
-            inf.get("timestamp", "")
+            format_time(penalty_taken_str),
+            format_time(timestamp_str)
         ]
         ws.append(row)
     
@@ -218,7 +232,7 @@ def export_session_excel(session_name: str, infringements: list, session_info: d
                     hist.get("performed_by", ""),
                     hist.get("observer", ""),
                     hist.get("details", ""),
-                    hist.get("timestamp", "")
+                    format_time(hist.get("timestamp", ""))
                 ]
                 ws2.append(row)
         

@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from .base import Base
 from dotenv import load_dotenv
-from .models import Base, SessionInfo
+from .models import Base, SessionInfo, AppConfig
 
 def init_db():
     """Initialize control DB tables if they don’t exist."""
@@ -168,8 +168,8 @@ def create_session_db(session_name: str):
 # --- Initialize Control DB Tables ---
 def init_control_db():
     """
-    Initializes tables in the control database (sessions table).
+    Initializes tables in the control database (sessions and app_config tables).
     """
-    from .models import SessionInfo  # Only control DB model
+    from .models import SessionInfo, AppConfig  # Control DB models
     Base.metadata.create_all(bind=_control_engine)
     logger.info("Control database tables initialized.")

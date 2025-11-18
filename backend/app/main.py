@@ -5,6 +5,8 @@ from .routes import session, infringements, penalties, history, infringement_log
 from .ws_manager import manager
 from .database import init_db, switch_session_db, ControlSessionLocal
 from .models import SessionInfo
+from .vars import get_warning_expiry_minutes, set_warning_expiry_minutes
+from pydantic import BaseModel
 import logging
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,27 @@ app.include_router(infringement_log.router, prefix="/infringement_log")
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
+
+class ConfigUpdate(BaseModel):
+    warning_expiry_minutes: int
+
+@app.get("/api/config")
+def get_config():
+    """Get application configuration values."""
+    return {
+        "warning_expiry_minutes": get_warning_expiry_minutes()
+    }
+
+@app.put("/api/config")
+def update_config(config: ConfigUpdate):
+    """Update application configuration values."""
+    if config.warning_expiry_minutes < 1:
+        raise HTTPException(status_code=400, detail="Warning expiry minutes must be at least 1")
+    set_warning_expiry_minutes(config.warning_expiry_minutes)
+    return {
+        "warning_expiry_minutes": config.warning_expiry_minutes,
+        "message": "Configuration updated successfully"
+    }
 
 # --- WebSocket endpoint ---
 @app.websocket("/ws")
